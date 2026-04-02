@@ -126,19 +126,11 @@ def _train(model, epochs, train_set, test_set, batch_size, learning_rate, weight
 
 def generate_sets(dataset, train_size, test_size, seed):
     generator = torch.Generator().manual_seed(seed)
-    proportion = test_size / (train_size + test_size)
-    
-    min_test_size = int(len(dataset) * proportion)
-    test_set, train_part = random_split(
-        dataset, 
-        [min_test_size, len(dataset) - min_test_size],
-        generator=generator
-    )
+    remaining_size = len(dataset) - train_size - test_size
 
-    train_size = min(train_size, len(dataset) - min_test_size)
-    train_set, _ = random_split(
-        train_part, 
-        [train_size, len(train_part) - train_size],
+    train_set, test_set, _ = random_split(
+        dataset, 
+        [train_size, test_size, remaining_size],
         generator=generator
     )
 

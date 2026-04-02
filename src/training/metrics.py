@@ -41,9 +41,8 @@ class Metric(ABC):
         return f"{value:.2f}"
     
 class Accuracy(Metric):
-    def __init__(self, k=1):
-        super().__init__("Accuracy" if k == 1 else f"Top-{k} Accuracy")
-        self.k = k
+    def __init__(self):
+        super().__init__("Accuracy")
 
     def reset(self):
         self.total_correct = 0
@@ -51,9 +50,13 @@ class Accuracy(Metric):
     
     def step(self, logits, y):
         batch_size = y.size(0)
-        target_indices = y.argmax(dim=-1)
-        _, top_k_indices = logits.topk(self.k, dim=1, largest=True, sorted=True)
-        correct = top_k_indices.eq(target_indices.view(-1, 1).expand_as(top_k_indices))
+        # Obtenemos el índice de la predicción con mayor logit
+        pred_indices = logits.argmax(dim=-1)
+        
+        # Verificamos si la predicción está en una posición donde y es 1
+        # y[range(batch_size), pred_indices] selecciona el valor de y para la predicción hecha
+        correct = y[torch.arange(batch_size), pred_indices] == 1
+        
         self.total_correct += correct.sum().item()
         self.total_samples += batch_size
 
@@ -72,6 +75,7 @@ class CrossEntropyLoss(Metric):
         self.total_ce = 0
     
     def step(self, logits, y):
+        y = y / y.sum(dim=1, keepdim=True)
         ce = torch.nn.functional.cross_entropy(logits, y)
         batch_size = y.size(0)
         self.total_ce += ce.item() * batch_size 

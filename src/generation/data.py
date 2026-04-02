@@ -63,40 +63,48 @@ def get_best_moves(layout, H, max_steps):
             # Si hay empates en la jugada óptima, guarda ambas
             best_moves.append((i, j))
 
-    return best_moves
+    return best_moves, cost
 
 def moves_to_tensor(moves, S):
     Y = torch.zeros(S*(S-1), dtype=torch.int)
 
     for move in moves:
-        idx = move[0] * (S-1) + move[1]
-        Y[idx] = 1
+        src, dst = move[0], move[1]
+        # Implementación de la fórmula: A = src * (S - 1) + (dst - [dst > src])
+        idx = src * (S - 1) + (dst - int(dst > src))
+        Y[idx] = 1.0
 
     return Y
 
 def generate_data_from_file(filepath, H, max_steps):
     layout = read_instance(filepath, H)
+    if layout.unsorted_stacks == 0: return None
 
     G, P, I, S = layout_to_tensors(layout)
 
-    best_moves = get_best_moves(layout, H, max_steps)
+    best_moves, cost = get_best_moves(layout, H, max_steps)
     Y = moves_to_tensor(best_moves, S)
 
-    return G, P, I, S, Y
+    return G, P, I, S, Y, cost
 
 def generate_data(folder, H, max_steps):
-    all_G, all_P, all_I, all_S, all_H, all_Y = [], [], [], [], [], []
+    all_G, all_P, all_I, all_S, all_H, all_Y, all_C = [], [], [], [], [], [], []
 
     for input_filename in os.listdir(INSTANCE_FOLDER / folder):
         filepath = os.path.join(INSTANCE_FOLDER / folder, input_filename)
-        G, P, I, S, Y = generate_data_from_file(filepath, H, max_steps)
+        result = generate_data_from_file(filepath, H, max_steps)
+        
+        if result is None:
+            continue
 
+        G, P, I, S, Y, C = result
         all_G.append(G)
         all_P.append(P)
         all_I.append(I)
         all_S.append(S)
         all_H.append(H)
         all_Y.append(Y)
+        all_C.append(C)
 
     data_G = np.stack(all_G, dtype=np.int32)
     data_P = np.stack(all_P, dtype=np.int32)
@@ -104,6 +112,7 @@ def generate_data(folder, H, max_steps):
     data_S = np.stack(all_S, dtype=np.int32)
     data_H = np.stack(all_H, dtype=np.int32)
     data_Y = np.stack(all_Y, dtype=np.int32)
+    data_C = np.stack(all_C, dtype=np.int32)
 
     output_path = DATA_FOLDER / f"{folder}.data"
 
@@ -114,6 +123,6 @@ def generate_data(folder, H, max_steps):
         f.create_dataset("S", data=data_S)
         f.create_dataset("H", data=data_H)
         f.create_dataset("Y", data=data_Y)
+        f.create_dataset("C", data=data_C)
 
-    print(f"Datos guardados en: {output_path}")
-    
+    print(f"Datos guardados en: {output_path} (Tamaño {len(data_G)})")

@@ -154,6 +154,6 @@ class CPMPTransformer(Transformer):
         invalid_mask = is_empty[:, indices_i] | is_full[:, indices_j]
 
         # 4. Aplicar el "menos infinito" a los movimientos prohibidos
-        final_scores.masked_fill_(invalid_mask, -float('inf'))
+        final_scores.masked_fill_(invalid_mask, -1e-9)
         
         return final_scores

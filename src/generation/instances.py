@@ -17,8 +17,47 @@ def generate_stacks(H, S, N):
 
     return stacks
 
-def generate_instance(filepath, H, S, N):
+def random_moves(stacks, H, r):
+    last_move = (None, None)
+    moves_made = 0
+    
+    while moves_made < r:
+        # 1. Elegir un origen que no esté vacío
+        valid_origins = [i for i, s in enumerate(stacks) if len(s) > 0]
+        if not valid_origins:
+            break  # No hay movimientos posibles
+            
+        origin_idx = random.choice(valid_origins)
+        
+        # 2. Elegir un destino que no esté lleno y no sea el origen
+        valid_destinations = [
+            i for i, s in enumerate(stacks) 
+            if i != origin_idx and len(s) < H
+        ]
+        
+        if not valid_destinations:
+            continue # Reintentar con otro origen
+            
+        dest_idx = random.choice(valid_destinations)
+        
+        # 3. Validar que no anule el movimiento anterior
+        # El inverso de (a, b) es (b, a)
+        if (dest_idx, origin_idx) == last_move:
+            continue
+            
+        # Ejecutar el movimiento
+        container = stacks[origin_idx].pop()
+        stacks[dest_idx].append(container)
+        
+        # Registrar rastro
+        last_move = (origin_idx, dest_idx)
+        moves_made += 1
+
+    return stacks
+
+def generate_instance(filepath, H, S, N, r):
     stacks = generate_stacks(H, S, N)
+    stacks = random_moves(stacks, H, r)
 
     with open(filepath, 'w') as f:
         f.write(f"{S} {N}")
@@ -28,13 +67,13 @@ def generate_instance(filepath, H, S, N):
             for g in s:
                 f.write(f"{g} ")
 
-def generate_instances(basename, H, S, N, amount, seed=42):
+def generate_instances(basename, H, S, N, amount, r=5, seed=42):
     os.makedirs(INSTANCE_FOLDER / basename, exist_ok=True)
     random.seed(seed)
 
     for i in range(amount):
         filepath = INSTANCE_FOLDER / basename / f'{basename}-{i}.txt'
-        generate_instance(filepath, H, S, N)
+        generate_instance(filepath, H, S, N, r)
 
 def read_instance(file, H):
     with open(file) as f:
