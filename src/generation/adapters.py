@@ -1,10 +1,11 @@
 import numpy as np
 from abc import ABC, abstractmethod
+from cpmp.layout import Layout
 
 class DataAdapter(ABC):
-    def __init__(self):
+    def __init__(self, data):
         super().__init__()
-        self.data = {}
+        self.data = data
 
     @abstractmethod
     def add(self, layout_data):
@@ -19,25 +20,30 @@ class DataAdapter(ABC):
         return len(self.data[list(self.data.keys())[0]])
 
 class LayoutDataAdapter(DataAdapter):
+    def __init__(self, data):
+        super().__init__(data)
+
     @abstractmethod
-    def layout_2_vec(self, layout, H):
+    def layout_2_vec(self, layout: Layout, H: int):
         pass
 
 class MovesDataAdapter(DataAdapter):
+    def __init__(self, data):
+        super().__init__(data)
+
     @abstractmethod
     def moves_2_vec(self, moves, S):
         pass
 
 class GPIAdapter(LayoutDataAdapter):
     def __init__(self):
-        super().__init__()
-        self.data = {
+        super().__init__({
             "G": [],
             "P": [],
             "I": [],
             "S": [],
-            "H": [],
-        }
+            "H": [], 
+        })
 
     def layout_2_vec(self, layout, H):
         G = [] # Valores de grupo
@@ -64,10 +70,9 @@ class GPIAdapter(LayoutDataAdapter):
 
 class StackMatrixAdapter(LayoutDataAdapter):
     def __init__(self):
-        super().__init__()
-        self.data = {
-            "S": []
-        }
+        super().__init__({
+            "S": [],
+        })
 
     def layout_2_vec(self, layout, H):
         stacks_matrix = []
@@ -92,12 +97,40 @@ class StackMatrixAdapter(LayoutDataAdapter):
             k: np.stack(v) for k, v in self.data.items()
         }
     
+class EnrichedStackMatrixAdapter(StackMatrixAdapter):
+    def __init__(self):
+        super(StackMatrixAdapter, self).__init__({
+            "S": [],
+            "X": []  
+        })
+
+    def layout_2_vec(self, layout: Layout, H: int):
+        S = super().layout_2_vec(layout, H)[0]
+        X = np.zeros((len(layout.stacks), 3), dtype=np.float32)
+
+        for i in range(len(layout.stacks)):
+            X[i][0] = 1.0 if layout.is_sorted_stack(i) else 0.0
+            X[i][1] = len(layout.stacks[i]) / H
+            X[i][2] = (layout.sorted_elements[i] / len(layout.stacks[i])) if len(layout.stacks[i]) != 0.0 else 1
+            
+        return S, np.array(X, dtype=np.float32)
+
+    def add(self, layout_data):
+        S_matrix, X = layout_data
+
+        self.data['S'].append(S_matrix)
+        self.data['X'].append(X)
+
+    def get(self):
+        return {
+            k: np.stack(v) for k, v in self.data.items()
+        }
+    
 class DefaultMovesAdapter(MovesDataAdapter):
     def __init__(self):
-        super().__init__()
-        self.data = {
+        super().__init__({
             "Y": [],
-        }
+        })
     
     def moves_2_vec(self, moves, S):
         Y = np.zeros(S*(S-1), dtype=np.int32)
