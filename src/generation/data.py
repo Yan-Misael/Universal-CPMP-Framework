@@ -85,7 +85,7 @@ def generate_data_from_file(filepath, H, max_steps, layout_cls, moves_cls):
 
     return layout_vec, moves_vec, cost
 
-def generate_data(folder, H, max_steps, layout_adapter: LayoutDataAdapter, moves_adapter: MovesDataAdapter):
+def generate_data(folder, H, max_steps, layout_adapter: LayoutDataAdapter, moves_adapter: MovesDataAdapter, output_name=None):
     filepaths = [os.path.join(INSTANCE_FOLDER / folder, f) for f in os.listdir(INSTANCE_FOLDER / folder)]
     
     # Extraemos las clases de las instancias recibidas
@@ -110,7 +110,10 @@ def generate_data(folder, H, max_steps, layout_adapter: LayoutDataAdapter, moves
     moves_data = moves_adapter.get()
     data = {**layout_data, **moves_data}
 
-    output_path = DATA_FOLDER / f"{folder}.data"
+    if output_name is None:
+        output_path = DATA_FOLDER / f"{folder}.data"
+    else:
+        output_path = DATA_FOLDER / f"{output_name}.data"
 
     with h5py.File(output_path, "w") as f:
         keys_order = [k for k in data.keys() if k != 'C']

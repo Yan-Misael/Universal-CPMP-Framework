@@ -64,8 +64,14 @@ class Layout:
         self.moves.append((i,j))
         
         return c
-        
     
+    def is_bottom_valid(self, i, j):
+        if j == (len(self.stacks[i])-1): return True
+        return self.stacks[i][j+1] < self.stacks[i][j]
+
+    def is_top_valid(self, i, j):
+        if j == 0: return True
+        return self.stacks[i][j-1] > self.stacks[i][j]
         
     def highlighted_print(self, stack_set):
         for stack in self.stacks:
