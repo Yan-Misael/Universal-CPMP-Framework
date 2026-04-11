@@ -2,6 +2,55 @@ import numpy as np
 from abc import ABC, abstractmethod
 from cpmp.layout import Layout
 
+# =====================================================
+'''
+class EnrichedStackMatrixAdapter(LayoutDataAdapter):
+    def __init__(self, S_max: int, H_max: int):
+        super().__init__({"X": np.float32})
+        self.S_max = S_max
+        self.H_max = H_max
+
+    def get_X(self, layout: Layout):
+        S_actual = len(layout.stacks)
+        X = np.zeros((self.S_max, 3), dtype=np.float32)
+
+        for i in range(self.S_max):
+            if i < S_actual:
+                # El stack existe en esta instancia: Calculamos sus features reales
+                stack = layout.stacks[i]
+                X[i][0] = 1.0 if layout.is_sorted_stack(i) else 0.0
+                X[i][1] = len(stack) / self.H_max # Normalizado respecto al H_max global
+                X[i][2] = (layout.sorted_elements[i] / len(stack)) if len(stack) != 0 else 1.0
+            else:
+                # PADDING: Este stack no existe en esta instancia (Ej. Instancia 5x5 en un marco 10x10)
+                # Lo llenamos con ceros. Posteriormente, el Transformer usará una máscara 
+                # para ignorar completamente las filas donde todos los valores sean 0.
+                X[i][0] = 0.0
+                X[i][1] = 0.0
+                X[i][2] = 0.0
+
+        return X
+
+class DefaultMovesAdapter(MovesDataAdapter):
+    def __init__(self, S_max: int):
+        super().__init__({"Y": np.int32})
+        self.S_max = S_max
+    
+    def moves_2_vec(self, moves, S_actual):
+        # Siempre creamos el vector máximo posible: S_max * (S_max - 1)
+        Y = np.zeros(self.S_max * (self.S_max - 1), dtype=np.int32)
+        
+        # Mapeamos los movimientos óptimos usando la escala de S_max
+        for src, dest in moves:
+            # Fórmula de aplanado adaptada al marco global
+            dest_idx = dest if dest < src else dest - 1
+            flat_idx = src * (self.S_max - 1) + dest_idx
+            Y[flat_idx] = 1
+            
+        return Y
+'''
+# =================================
+
 class DataAdapter(ABC):
     def __init__(self, data_keys):
         super().__init__()
