@@ -46,17 +46,20 @@ class CPMPTransformer(Transformer):
         self.dest_proj = nn.Linear(d_model, d_model)
 
     def forward(self, S, X):
-        batch_size, S_len, H, C_dim = S.shape
+        batch_size, S_len, H, _ = S.shape
         device = S.device
         
-        padding_mask = (S == -1).all(dim=-1) 
-        x = self.input_projection(S.float())
-        x = torch.where(padding_mask.unsqueeze(-1), self.empty_embed, x)
+        is_padded_stack = (X == 0).all(dim=-1)
+
+        x = self.input_projection(S) 
         
-        x = x.view(batch_size * S_len, H, self.d_model) 
+        mask = (S == -1).all(dim=-1) 
+        x[mask] = self.empty_embed.squeeze(0).squeeze(0) 
+
+        x = x.view(batch_size * S_len, H, self.d_model)
         x = self.intra_stack_attention(x) 
-        
         x = x.view(batch_size, S_len, H, self.d_model)
+        
         x_flat = x.view(batch_size, S_len, H * self.d_model)
         stack_vertical_info = self.stack_summary_layer(x_flat) 
         
@@ -65,7 +68,7 @@ class CPMPTransformer(Transformer):
         stack_embeddings = self.fusion_layer(combined) 
         stack_embeddings = self.fusion_norm(stack_embeddings)
 
-        x_global = self.inter_stack_attention(stack_embeddings)
+        x_global = self.inter_stack_attention(stack_embeddings, src_key_padding_mask=is_padded_stack)
         
         q_origin = self.origin_proj(x_global)
         k_dest = self.dest_proj(x_global)
@@ -77,18 +80,16 @@ class CPMPTransformer(Transformer):
         is_origin_empty = (S == -1).all(dim=-1).all(dim=2) 
         is_dest_full = ~(S == -1).all(dim=-1).any(dim=2) 
         
-        mask_origin = is_origin_empty.unsqueeze(2).expand(-1, -1, S_len)
-        mask_dest = is_dest_full.unsqueeze(1).expand(-1, S_len, -1)
+        is_origin_invalid = is_origin_empty | is_padded_stack
+        is_dest_invalid = is_dest_full | is_padded_stack
+        
+        mask_origin = is_origin_invalid.unsqueeze(2).expand(-1, -1, S_len)
+        mask_dest = is_dest_invalid.unsqueeze(1).expand(-1, S_len, -1)
         
         invalid_action_mask = mask_diag | mask_origin | mask_dest
         
-        logits_matrix = logits_matrix.masked_fill(invalid_action_mask, -1e4)
+        logits_matrix = logits_matrix.masked_fill(invalid_action_mask, float('-inf'))
         
-        indices = torch.arange(S_len, device=device)
-        src_grid = indices.view(-1, 1).repeat(1, S_len)
-        dst_grid = indices.view(1, -1).repeat(S_len, 1)
-        mask_diag_flat = src_grid != dst_grid
+        logits_flat = logits_matrix.view(batch_size, -1)
         
-        logits = logits_matrix[:, mask_diag_flat]
-
-        return logits
+        return logits_flat
