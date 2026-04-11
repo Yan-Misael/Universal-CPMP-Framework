@@ -147,9 +147,74 @@ class StackMatrix4DAdapter(StackMatrixAdapter):
 
         return (np.array(stacks_matrix, dtype=np.float32), )
 
-# ========
-
 class EnrichedStackMatrixAdapter(LayoutDataAdapter):
+    def __init__(self):
+        super().__init__({
+            "S": np.float32,
+            "X": np.float32
+        })
+
+    @staticmethod
+    def get_X(layout: Layout, H: int):
+        X = np.zeros((len(layout.stacks), 3), dtype=np.float32)
+
+        for i in range(len(layout.stacks)):
+            X[i][0] = 1.0 if layout.is_sorted_stack(i) else 0.0
+            X[i][1] = len(layout.stacks[i]) / H
+            X[i][2] = (layout.sorted_elements[i] / len(layout.stacks[i])) if len(layout.stacks[i]) != 0.0 else 1
+
+        return np.array(X, dtype=np.float32)
+
+    def add(self, layout_data):
+        S_matrix, X = layout_data
+
+        self.data['S'].append(S_matrix)
+        self.data['X'].append(X)
+    
+class EnrichedStackMatrix3DAdapter(EnrichedStackMatrixAdapter):
+    def __init__(self):
+        super().__init__()
+
+    @staticmethod
+    def layout_2_vec(layout: Layout, H: int):
+        S = StackMatrix3DAdapter.layout_2_vec(layout, H)[0]
+        X = EnrichedStackMatrixAdapter.get_X(layout, H)
+        return S, X
+    
+class EnrichedStackMatrix4DAdapter(EnrichedStackMatrixAdapter):
+    def __init__(self):
+        super().__init__()
+
+    @staticmethod
+    def layout_2_vec(layout: Layout, H: int):
+        S = StackMatrix4DAdapter.layout_2_vec(layout, H)[0]
+        X = EnrichedStackMatrixAdapter.get_X(layout, H)
+        return S, X
+
+class DefaultMovesAdapter(MovesDataAdapter):
+    def __init__(self):
+        super().__init__({
+            "Y": np.int32
+        })
+    
+    @staticmethod
+    def moves_2_vec(moves, S):
+        Y = np.zeros(S*(S-1), dtype=np.int32)
+
+        for move in moves:
+            src, dst = move[0], move[1]
+            # Implementación de la fórmula: A = src * (S - 1) + (dst - [dst > src])
+            idx = src * (S - 1) + (dst - int(dst > src))
+            Y[idx] = 1.0
+
+        return Y
+    
+    def add(self, moves_data):
+        self.data['Y'].append(moves_data)
+
+# ===============
+
+class EnrichedStackMatrixAdapterUniversal(LayoutDataAdapter):
     def __init__(self, S_max: int, H_max: int):
         super().__init__({"X": np.float32})
         self.S_max = S_max
@@ -176,56 +241,7 @@ class EnrichedStackMatrixAdapter(LayoutDataAdapter):
 
         return X
 
-# ========
-'''
-class EnrichedStackMatrixAdapter(LayoutDataAdapter):
-    def __init__(self):
-        super().__init__({
-            "S": np.float32,
-            "X": np.float32
-        })
-
-    @staticmethod
-    def get_X(layout: Layout, H: int):
-        X = np.zeros((len(layout.stacks), 3), dtype=np.float32)
-
-        for i in range(len(layout.stacks)):
-            X[i][0] = 1.0 if layout.is_sorted_stack(i) else 0.0
-            X[i][1] = len(layout.stacks[i]) / H
-            X[i][2] = (layout.sorted_elements[i] / len(layout.stacks[i])) if len(layout.stacks[i]) != 0.0 else 1
-
-        return np.array(X, dtype=np.float32)
-
-    def add(self, layout_data):
-        S_matrix, X = layout_data
-
-        self.data['S'].append(S_matrix)
-        self.data['X'].append(X)
-'''
-    
-class EnrichedStackMatrix3DAdapter(EnrichedStackMatrixAdapter):
-    def __init__(self):
-        super().__init__()
-
-    @staticmethod
-    def layout_2_vec(layout: Layout, H: int):
-        S = StackMatrix3DAdapter.layout_2_vec(layout, H)[0]
-        X = EnrichedStackMatrixAdapter.get_X(layout, H)
-        return S, X
-    
-class EnrichedStackMatrix4DAdapter(EnrichedStackMatrixAdapter):
-    def __init__(self):
-        super().__init__()
-
-    @staticmethod
-    def layout_2_vec(layout: Layout, H: int):
-        S = StackMatrix4DAdapter.layout_2_vec(layout, H)[0]
-        X = EnrichedStackMatrixAdapter.get_X(layout, H)
-        return S, X
-
-# ===============
-
-class DefaultMovesAdapter(MovesDataAdapter):
+class DefaultMovesAdapterUniversal(MovesDataAdapter):
     def __init__(self, S_max: int):
         super().__init__({"Y": np.int32})
         self.S_max = S_max
@@ -242,27 +258,3 @@ class DefaultMovesAdapter(MovesDataAdapter):
             Y[flat_idx] = 1
             
         return Y
-
-# ===========
-'''
-class DefaultMovesAdapter(MovesDataAdapter):
-    def __init__(self):
-        super().__init__({
-            "Y": np.int32
-        })
-    
-    @staticmethod
-    def moves_2_vec(moves, S):
-        Y = np.zeros(S*(S-1), dtype=np.int32)
-
-        for move in moves:
-            src, dst = move[0], move[1]
-            # Implementación de la fórmula: A = src * (S - 1) + (dst - [dst > src])
-            idx = src * (S - 1) + (dst - int(dst > src))
-            Y[idx] = 1.0
-
-        return Y
-    
-    def add(self, moves_data):
-        self.data['Y'].append(moves_data)
-'''
